@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>VR Environment Controller - Auto Discover</title>
+ <style>
+ body {
+ font-family: Arial, sans-serif;
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ justify-content: center;
+ min-height: 100vh;
+ margin: 0;
+ background: #e0e0e0;
+ }
+
+ .container {
+ background: white;
+ padding: 30px;
+ border-radius: 15px;
+ box-shadow: none;
+ max-width: 500px;
+ }
+
+ h1 {
+ text-align: center;
+ color: #333;
+ margin-bottom: 20px;
+ font-size: 24px;
+ }
+
+ .connection-status {
+ margin-bottom: 30px;
+ text-align: center;
+ padding: 15px;
+ border-radius: 8px;
+ background: #f8f9fa;
+ }
+
+ .connection-status.searching {
+ background: #e0e0e0;
+ color: #333;
+ }
+
+ .connection-status.connected {
+ background: #d0d0d0;
+ color: #333;
+ }
+
+ .connection-status.disconnected {
+ background: #e0e0e0;
+ color: #333;
+ }
+
+ .ip-display {
+ font-size: 14px;
+ color: #555;
+ margin-top: 5px;
+ }
+
+ .ip-display strong {
+ color: #333;
+ }
+
+ .participant-id-section {
+ margin-bottom: 20px;
+ }
+
+ .participant-id-section label {
+ display: block;
+ margin-bottom: 5px;
+ font-weight: bold;
+ color: #333;
+ font-size: 14px;
+ }
+
+ .id-input-group {
+ display: flex;
+ gap: 10px;
+ }
+
+ .participant-id-section input {
+ flex: 1;
+ padding: 10px;
+ font-size: 14px;
+ border: 2px solid #ccc;
+ border-radius: 8px;
+ transition: border-color 0.3s ease;
+ }
+
+ .participant-id-section input:focus {
+ outline: none;
+ border-color: #666;
+ }
+
+ .participant-id-section button {
+ padding: 10px 20px;
+ font-size: 14px;
+ background: #666;
+ color: white;
+ border: none;
+ border-radius: 8px;
+ cursor: pointer;
+ transition: all 0.3s ease;
+ box-shadow: none;
+ }
+
+ .participant-id-section button:hover {
+ background: #555;
+ }
+
+ .scan-button {
+ margin-bottom: 20px;
+ text-align: center;
+ }
+
+ .scan-button button {
+ padding: 10px 20px;
+ font-size: 14px;
+ background: #666;
+ color: white;
+ border: none;
+ border-radius: 8px;
+ cursor: pointer;
+ transition: all 0.3s ease;
+ }
+
+ .scan-button button:hover {
+ background: #555;
+ }
+
+ .controls {
+ display: flex;
+ flex-direction: column;
+ gap: 30px;
+ }
+
+ .direction-controls {
+ display: grid;
+ grid-template-columns: repeat(3, 100px);
+ grid-template-rows: repeat(3, 100px);
+ gap: 10px;
+ justify-content: center;
+ }
+
+ .scale-controls {
+ display: flex;
+ justify-content: center;
+ gap: 20px;
+ }
+
+ button {
+ background: #666;
+ color: white;
+ border: none;
+ border-radius: 10px;
+ font-size: 20px;
+ font-weight: bold;
+ cursor: pointer;
+ transition: all 0.3s ease;
+ box-shadow: none;
+ }
+
+ button:hover {
+ transform: translateY(-2px);
+ box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+ }
+
+ button:active {
+ transform: translateY(0);
+ box-shadow: none;
+ }
+
+ button:disabled {
+ background: #ccc;
+ cursor: not-allowed;
+ transform: none;
+ }
+
+ #forward {
+ grid-column: 2;
+ grid-row: 1;
+ }
+
+ #left {
+ grid-column: 1;
+ grid-row: 2;
+ }
+
+ #right {
+ grid-column: 3;
+ grid-row: 2;
+ }
+
+ #backward {
+ grid-column: 2;
+ grid-row: 3;
+ }
+
+ .scale-controls button {
+ width: 100px;
+ height: 80px;
+ font-size: 32px;
+ }
+
+ .section-label {
+ text-align: center;
+ font-weight: bold;
+ color: #555;
+ margin-bottom: 10px;
+ }
+
+ .status {
+ margin-top: 20px;
+ padding: 10px;
+ text-align: center;
+ border-radius: 5px;
+ font-size: 14px;
+ min-height: 20px;
+ }
+
+ .status.success {
+ background: #d0d0d0;
+ color: #333;
+ }
+
+ .status.error {
+ background: #e0e0e0;
+ color: #333;
+ }
+ </style>
+</head>
+<body>
+ <div class="container">
+ <h1>VR Environment Controller</h1>
+
+ <div id="connectionStatus" class="connection-status searching">
+ <div id="statusText">Searching for VR headset...</div>
+ <div class="ip-display">
+ <strong id="ipDisplay">Not connected</strong>
+ </div>
+ </div>
+
+ <div class="scan-button">
+ <button onclick="scanForQuest()">Scan Network</button>
+ </div>
+
+ <div class="participant-id-section">
+ <label for="participantId">Participant ID:</label>
+ <div class="id-input-group">
+ <input type="text" id="participantId" placeholder="Enter alphanumeric ID" disabled>
+ <button onclick="sendParticipantId()" disabled id="setIdButton">Set ID</button>
+ </div>
+ </div>
+
+ <div class="controls">
+ <div>
+ <div class="section-label">Movement Controls</div>
+ <div class="direction-controls">
+ <button id="forward" onclick="sendCommand('forward')" disabled>↑<br>Forward</button>
+ <button id="left" onclick="sendCommand('left')" disabled>←<br>Left</button>
+ <button id="right" onclick="sendCommand('right')" disabled>→<br>Right</button>
+ <button id="backward" onclick="sendCommand('backward')" disabled>↓<br>Back</button>
+ </div>
+ </div>
+
+ <div>
+ <div class="section-label">Scale Controls</div>
+ <div class="scale-controls">
+ <button id="minus" onclick="sendCommand('scale-down')" disabled>−</button>
+ <button id="plus" onclick="sendCommand('scale-up')" disabled>+</button>
+ </div>
+
+ <div></div>
+  <div class="section-label">Rotation Controls</div>
+ <div class="scale-controls">
+ <button id="minus" onclick="sendCommand('rotate-left')" disabled>↺</button>
+ <button id="plus" onclick="sendCommand('rotate-right')" disabled>↻</button>
+ </div>
+ </div>
+ </div>
+
+ <div id="status" class="status"></div>
+ </div>
+
+ <script>
+ // ========================================
+ // NETWORK CONFIGURATION
+ // ========================================
+localStorage.setItem('lastQuestIP', '127.0.0.1');
+ const PORT = 8080;
+ const COMMON_NETWORK_RANGES = [
+'172.20.10', // Mobile hotspots (iPhone/Android)
+ '10.0.0', // Some routers
+ '192.168.1', // Most common home network
+ '192.168.0', // Second most common
+ '192.168.2',
+ '192.168.43', // Android hotspot
+ '172.16.0' // Less common
+ ];
+ const START_IP = 2; // Start scanning from .2
+ const END_IP = 254; // End at .254
+ const TIMEOUT = 2000; // 2 second timeout per IP
+ const PARALLEL_SCANS = 10; // Scan 10 IPs at once
+ // ========================================
+
+ let vrHeadsetIP = null;
+ let isConnected = false;
+
+ // Auto-scan on page load
+ window.addEventListener('load', () => {
+ scanForQuest();
+ });
+
+ async function scanForQuest() {
+ updateStatus('searching', 'Scanning network for VR headset...');
+ disableControls();
+
+ // Try to load saved IP first
+ const savedIP = localStorage.getItem('lastQuestIP');
+ if (savedIP) {
+ updateStatus('searching', `Trying last known IP: ${savedIP}...`);
+ if (await testConnection(savedIP)) {
+ connectToQuest(savedIP);
+ return;
+ }
+ }
+
+ // Scan the network
+ for (let range of COMMON_NETWORK_RANGES) {
+ updateStatus('searching', `Scanning ${range}.x network...`);
+
+ const foundIP = await scanIPRange(range);
+ if (foundIP) {
+ connectToQuest(foundIP);
+ return;
+ }
+ }
+
+ updateStatus('disconnected', 'No VR headset found. Make sure it\'s on the same WiFi.');
+ }
+
+ async function scanIPRange(baseIP) {
+ for (let i = START_IP; i <= END_IP; i += PARALLEL_SCANS) {
+ const promises = [];
+
+ // Test multiple IPs in parallel
+ for (let j = 0; j < PARALLEL_SCANS && (i + j) <= END_IP; j++) {
+ const ip = `${baseIP}.${i + j}`;
+ promises.push(testConnection(ip));
+ }
+
+ const results = await Promise.all(promises);
+
+ // Check if any connection succeeded
+ for (let j = 0; j < results.length; j++) {
+ if (results[j]) {
+ return `${baseIP}.${i + j}`;
+ }
+ }
+ }
+
+ return null;
+ }
+
+ async function testConnection(ip) {
+ try {
+ const controller = new AbortController();
+ const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+ const response = await fetch(`http://${ip}:${PORT}/ping`, {
+ method: 'GET',
+ signal: controller.signal,
+ mode: 'cors'
+ });
+
+ clearTimeout(timeoutId);
+
+ // Check if response indicates it's our VR server
+ if (response.ok) {
+ const text = await response.text();
+ console.log(`Response from ${ip}: "${text}"`);
+
+ // Check for VR Unity Server response
+ if (text.includes('VR') || text.includes('Unity') || text.includes('Server')) {
+ console.log(`Found VR headset at ${ip}`);
+ return true;
+ }
+ }
+ } catch (error) {
+ // Connection failed, continue scanning
+ console.log(`Failed to connect to ${ip}: ${error.message}`);
+ }
+
+ return false;
+ }
+
+ function connectToQuest(ip) {
+ vrHeadsetIP = ip;
+ isConnected = true;
+ localStorage.setItem('lastQuestIP', ip);
+ updateStatus('connected', 'Connected to VR headset!');
+ document.getElementById('ipDisplay').textContent = `${ip}:${PORT}`;
+ enableControls();
+ }
+
+ function updateStatus(statusType, message) {
+ const statusDiv = document.getElementById('connectionStatus');
+ const textDiv = document.getElementById('statusText');
+
+ statusDiv.className = `connection-status ${statusType}`;
+ textDiv.textContent = message;
+ }
+
+ function enableControls() {
+ const buttons = document.querySelectorAll('.controls button');
+ buttons.forEach(btn => btn.disabled = false);
+ document.getElementById('participantId').disabled = false;
+ document.getElementById('setIdButton').disabled = false;
+ }
+
+ function disableControls() {
+ const buttons = document.querySelectorAll('.controls button');
+ buttons.forEach(btn => btn.disabled = true);
+ document.getElementById('participantId').disabled = true;
+ document.getElementById('setIdButton').disabled = true;
+ }
+
+ function showStatus(message, isError = false) {
+ const statusDiv = document.getElementById('status');
+ statusDiv.textContent = message;
+ statusDiv.className = 'status ' + (isError ? 'error' : 'success');
+
+ setTimeout(() => {
+ statusDiv.textContent = '';
+ statusDiv.className = 'status';
+ }, 3000);
+ }
+
+ async function sendCommand(command) {
+ if (!isConnected || !vrHeadsetIP) {
+ showStatus('Not connected to VR headset', true);
+ return;
+ }
+
+ const url = `http://${vrHeadsetIP}:${PORT}/${command}`;
+
+ try {
+ showStatus(`Sending ${command} command...`);
+
+ const response = await fetch(url, {
+ method: 'POST',
+ mode: 'no-cors', // Use no-cors mode to avoid CORS issues
+ headers: {
+ 'Content-Type': 'application/json',
+ },
+ body: JSON.stringify({ command: command })
+ });
+
+ // With no-cors, we can't read the response, but if fetch succeeds, command was sent
+ showStatus(`Command ${command} sent successfully`);
+
+ } catch (error) {
+ console.error('Error sending command:', error);
+ showStatus(`Error: ${error.message}`, true);
+ // Don't disconnect on every error - could just be a network hiccup
+ // Only disconnect if multiple failures occur
+ }
+ }
+
+ async function sendParticipantId() {
+ if (!isConnected || !vrHeadsetIP) {
+ showStatus('Not connected to VR headset', true);
+ return;
+ }
+
+ const participantId = document.getElementById('participantId').value.trim();
+
+ if (!participantId) {
+ showStatus('Please enter a participant ID', true);
+ return;
+ }
+
+ // Validate alphanumeric
+ if (!/^[a-zA-Z0-9]+$/.test(participantId)) {
+ showStatus('ID must be alphanumeric only', true);
+ return;
+ }
+
+ const url = `http://${vrHeadsetIP}:${PORT}/set-participant-id`;
+
+ try {
+ showStatus(`Setting participant ID: ${participantId}...`);
+
+ const response = await fetch(url, {
+ method: 'POST',
+ mode: 'no-cors',
+ headers: {
+ 'Content-Type': 'application/json',
+ },
+ body: JSON.stringify({ participantId: participantId })
+ });
+
+ showStatus(`Participant ID set to: ${participantId}`);
+
+ } catch (error) {
+ console.error('Error setting participant ID:', error);
+ showStatus(`Error: ${error.message}`, true);
+ }
+ }
+ </script>
+</body>
+</html>
