@@ -131,6 +131,28 @@
  background: #555;
  }
 
+ .network-selection {
+ margin-bottom: 20px;
+ text-align: center;
+ }
+
+ .network-buttons {
+ display: flex;
+ gap: 10px;
+ justify-content: center;
+ flex-wrap: wrap;
+ }
+
+ .network-buttons button {
+ padding: 10px 16px;
+ font-size: 14px;
+ }
+
+ .network-buttons button.selected {
+ background: #222;
+ outline: 3px solid #aaa;
+ }
+
  .controls {
  display: flex;
  flex-direction: column;
@@ -236,15 +258,24 @@
  <div class="container">
  <h1>VR Environment Controller</h1>
 
- <div id="connectionStatus" class="connection-status searching">
- <div id="statusText">Searching for VR headset...</div>
+ <div id="connectionStatus" class="connection-status disconnected">
+ <div id="statusText">Select a hotspot, then scan for the VR headset.</div>
  <div class="ip-display">
  <strong id="ipDisplay">Not connected</strong>
  </div>
  </div>
 
+ <div class="network-selection">
+ <div class="section-label">Choose Network</div>
+ <div class="network-buttons">
+ <button type="button" data-range="172.20.10" onclick="selectNetwork(this, 'iPhone Hotspots', '172.20.10')">Celeste's Hotspot</button>
+ <button type="button" data-range="10.0.0" onclick="selectNetwork(this, 'Nasim\'s Hotspot', '10.0.0')">Nasim's Hotspot</button>
+ <button type="button" onclick="selectNetwork(this, 'Other Networks', ['192.168.1', '192.168.0', '192.168.2', '192.168.43', '172.16.0'])">Other Network</button>
+ </div>
+ </div>
+
  <div class="scan-button">
- <button onclick="scanForQuest()">Scan Network</button>
+ <button id="scanButton" onclick="scanForQuest()" disabled>Select a Hotspot First</button>
  </div>
 
  <div class="participant-id-section">
@@ -274,7 +305,7 @@
  </div>
 
  <div></div>
-  <div class="section-label">Rotation Controls</div>
+  <div style="margin-top: 20px;" class="section-label">Rotation Controls</div>
  <div class="scale-controls">
  <button id="minus" onclick="sendCommand('rotate-left')" disabled>↺</button>
  <button id="plus" onclick="sendCommand('rotate-right')" disabled>↻</button>
@@ -289,38 +320,46 @@
  // ========================================
  // NETWORK CONFIGURATION
  // ========================================
-localStorage.setItem('lastQuestIP', '127.0.0.1');
  const PORT = 8080;
- const COMMON_NETWORK_RANGES = [
-'172.20.10', // Mobile hotspots (iPhone/Android)
- '10.0.0', // Some routers
- '192.168.1', // Most common home network
- '192.168.0', // Second most common
- '192.168.2',
- '192.168.43', // Android hotspot
- '172.16.0' // Less common
- ];
  const START_IP = 2; // Start scanning from .2
  const END_IP = 254; // End at .254
- const TIMEOUT = 2000; // 2 second timeout per IP
- const PARALLEL_SCANS = 10; // Scan 10 IPs at once
+ const TIMEOUT = 600; // Move on quickly when an address does not answer
+ const PARALLEL_SCANS = 32; // Test more addresses at the same time
  // ========================================
 
  let vrHeadsetIP = null;
  let isConnected = false;
+ let selectedRanges = [];
+ let selectedNetworkName = null;
 
- // Auto-scan on page load
- window.addEventListener('load', () => {
- scanForQuest();
+ function selectNetwork(button, networkName, ranges) {
+ selectedNetworkName = networkName;
+ selectedRanges = Array.isArray(ranges) ? ranges : [ranges];
+
+ document.querySelectorAll('.network-buttons button').forEach(btn => {
+ btn.classList.toggle('selected', btn === button);
  });
 
+ const scanButton = document.getElementById('scanButton');
+ scanButton.disabled = false;
+ scanButton.textContent = `Scan ${networkName}`;
+ const rangeDescription = selectedRanges.map(range => `${range}.x`).join(', ');
+ updateStatus('disconnected', `${networkName} selected (${rangeDescription}). Ready to scan.`);
+ document.getElementById('ipDisplay').textContent = 'Not connected';
+ }
+
  async function scanForQuest() {
- updateStatus('searching', 'Scanning network for VR headset...');
+ if (selectedRanges.length === 0) {
+ updateStatus('disconnected', 'Please select a hotspot before scanning.');
+ return;
+ }
+
+ updateStatus('searching', `Scanning ${selectedNetworkName} for VR headset...`);
  disableControls();
 
- // Try to load saved IP first
+ // Try the saved address only when it belongs to the selected network.
  const savedIP = localStorage.getItem('lastQuestIP');
- if (savedIP) {
+ if (savedIP && selectedRanges.some(range => savedIP.startsWith(`${range}.`))) {
  updateStatus('searching', `Trying last known IP: ${savedIP}...`);
  if (await testConnection(savedIP)) {
  connectToQuest(savedIP);
@@ -328,10 +367,8 @@ localStorage.setItem('lastQuestIP', '127.0.0.1');
  }
  }
 
- // Scan the network
- for (let range of COMMON_NETWORK_RANGES) {
- updateStatus('searching', `Scanning ${range}.x network...`);
-
+ for (const range of selectedRanges) {
+ updateStatus('searching', `Scanning ${range}.x on ${selectedNetworkName}...`);
  const foundIP = await scanIPRange(range);
  if (foundIP) {
  connectToQuest(foundIP);
@@ -339,7 +376,7 @@ localStorage.setItem('lastQuestIP', '127.0.0.1');
  }
  }
 
- updateStatus('disconnected', 'No VR headset found. Make sure it\'s on the same WiFi.');
+ updateStatus('disconnected', `No VR headset found on ${selectedNetworkName}. Make sure both devices are on that hotspot.`);
  }
 
  async function scanIPRange(baseIP) {
