@@ -321,10 +321,10 @@
  // NETWORK CONFIGURATION
  // ========================================
  const PORT = 8080;
- const START_IP = 2; // Start scanning from .2
+ const START_IP = 1; // Start scanning from .2
  const END_IP = 254; // End at .254
- const TIMEOUT = 600; // Move on quickly when an address does not answer
- const PARALLEL_SCANS = 32; // Test more addresses at the same time
+ const TIMEOUT = 5000; // Move on quickly when an address does not answer
+ const PARALLEL_SCANS = 8; // Test more addresses at the same time
  // ========================================
 
  let vrHeadsetIP = null;
